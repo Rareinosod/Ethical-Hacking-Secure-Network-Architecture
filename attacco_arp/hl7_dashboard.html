@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard HL7 MITM</title>
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --bg2: #111114;
+      --panel: #18181c;
+      --panel2: #1e1e24;
+      --border: #2a2a35;
+      --border2: #3a2030;
+      --text: #f0eef2;
+      --muted: #7a7a90;
+      --accent: #e03050;
+      --accent2: #c0203a;
+      --accent-soft: #2d0d18;
+      --ok: #22c55e;
+      --ok-soft: #0a2a18;
+      --warn: #f59e0b;
+      --warn-soft: #2a1e06;
+      --danger: #ef4444;
+      --danger-soft: #2d0d0d;
+      --info: #60a5fa;
+      --info-soft: #0a1830;
+      --shadow: 0 8px 32px rgba(224,48,80,0.10);
+      --shadow2: 0 2px 12px rgba(0,0,0,0.5);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-monospace,'JetBrains Mono','Fira Code','Cascadia Code',monospace; background:var(--bg); color:var(--text); }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:var(--bg2); }
+    ::-webkit-scrollbar-thumb { background:var(--accent2); border-radius:4px; }
+    .wrap { max-width:1280px; margin:0 auto; padding:24px; }
+    h1,h2,h3,h4,p { margin-top:0; }
+    .hero {
+      background: linear-gradient(135deg,#1a060d 0%,#1e0d18 60%,#12080f 100%);
+      border:1px solid var(--border2);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:24px 28px;
+      margin-bottom:20px;
+      display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    }
+    .hero h1 { margin:0; font-size:22px; letter-spacing:0.04em; color:var(--accent); text-shadow:0 0 20px rgba(224,48,80,0.4); }
+    .hero-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow2); padding:18px; margin-bottom:20px; }
+    .panel-red { background:linear-gradient(135deg,var(--panel) 80%,#1d0a12 100%); border-color:var(--border2); }
+    .panel-info { background:linear-gradient(135deg,var(--panel) 80%,#080e1d 100%); border-color:#1a2540; }
+    .panel-ok { background:linear-gradient(135deg,var(--panel) 80%,#081a0f 100%); border-color:#0f2a18; }
+    .panel h2 { font-size:14px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:14px; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input[type="search"], select { padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel2); color:var(--text); font:inherit; font-size:13px; outline:none; transition:border-color .2s; }
+    input[type="search"]:focus, select:focus { border-color:var(--accent); }
+    input[type="search"]::placeholder { color:var(--muted); }
+    select option { background:var(--panel2); }
+    #liveStatus { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.04em; padding:7px 14px; border-radius:999px; border:1px solid var(--border); background:var(--panel2); white-space:nowrap; }
+    #liveStatus .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+    #liveStatus.connected { color:var(--ok); background:#0a2a18; border-color:#15522c; }
+    #liveStatus.connected .dot { background:var(--ok); box-shadow:0 0 6px var(--ok); }
+    #liveStatus.disconnected { color:var(--danger); background:var(--danger-soft); border-color:#5a1a1a; }
+    #liveStatus.disconnected .dot { background:var(--danger); }
+    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:20px; }
+    .stat-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow2); padding:18px 20px; position:relative; overflow:hidden; }
+    .stat-card::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; border-radius:4px 0 0 4px; }
+    .stat-card.c-total::before { background:#6366f1; }
+    .stat-card.c-mod::before { background:var(--accent); }
+    .stat-card.c-pass::before { background:var(--ok); }
+    .stat-card.c-show::before { background:var(--info); }
+    .stat-card .label { font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:8px; }
+    .stat-card .value { font-size:28px; font-weight:700; font-family:inherit; }
+    .stat-card.c-total .value { color:#818cf8; }
+    .stat-card.c-mod .value { color:var(--accent); }
+    .stat-card.c-pass .value { color:var(--ok); }
+    .stat-card.c-show .value { color:var(--info); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:12px; }
+    .cell { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; }
+    .cell .k { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:5px; }
+    .cell .v { font-size:13px; font-weight:600; word-break:break-word; }
+    .badges { display:flex; gap:6px; flex-wrap:wrap; }
+    .badge { padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:0.04em; border:1px solid transparent; }
+    .b-ok { background:var(--ok-soft); color:var(--ok); border-color:#1a4a2a; }
+    .b-danger { background:var(--danger-soft); color:var(--danger); border-color:#5a1a1a; }
+    .b-warn { background:var(--warn-soft); color:var(--warn); border-color:#5a3a06; }
+    .b-accent { background:var(--accent-soft); color:var(--accent); border-color:#5a1028; }
+    .b-info { background:var(--info-soft); color:var(--info); border-color:#1a3060; }
+    .event-list { display:grid; gap:12px; }
+    .event-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow2); padding:16px; cursor:pointer; transition:border-color .2s, box-shadow .2s; position:relative; }
+    .event-card:hover { border-color:var(--accent2); box-shadow:0 0 0 2px #e0305022; }
+    .event-card.selected { border-color:var(--accent); box-shadow:0 0 0 2px #e0305044; background:linear-gradient(135deg,var(--panel) 90%,#1a060d 100%); }
+    .event-card.is-modified { border-left:3px solid var(--accent); }
+    .event-card.is-clean { border-left:3px solid var(--ok); }
+    @keyframes flashNew { from{box-shadow:0 0 0 4px #e0305066} to{box-shadow:var(--shadow2)} }
+    .event-card.new { animation:flashNew 1.4s ease-out; }
+    .topline { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .topline h3 { margin:0; font-size:14px; color:var(--text); }
+    .topline .ts { font-size:11px; color:var(--muted); margin-top:3px; }
+    details { margin-top:12px; border-top:1px solid var(--border); padding-top:12px; }
+    summary { cursor:pointer; font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--accent); user-select:none; margin-bottom:12px; list-style:none; display:flex; align-items:center; gap:6px; }
+    summary::before { content:'▶'; font-size:9px; transition:transform .2s; }
+    details[open] summary::before { transform:rotate(90deg); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
+    td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; word-break:break-word; }
+    tr:last-child td { border-bottom:none; }
+    td:first-child { color:var(--info); font-size:12px; }
+    td:nth-child(2) { color:var(--muted); }
+    td:nth-child(3) { color:var(--accent); font-weight:600; }
+    .hl7-viewer { background:#080808; border:1px solid var(--border); border-radius:10px; padding:14px; overflow:auto; font-family:ui-monospace,'JetBrains Mono',monospace; font-size:12px; line-height:1.6; }
+    .hl7-viewer.original { border-color:#1a3060; }
+    .hl7-viewer.modified { border-color:#5a1028; }
+    .hl7-seg { display:flex; gap:0; align-items:flex-start; }
+    .hl7-seg .seg-tag { min-width:52px; font-weight:700; padding:2px 8px 2px 0; }
+    .hl7-seg .seg-body { flex:1; color:#c0c0d8; white-space:pre-wrap; word-break:break-word; padding:2px 0; }
+    .seg-MSH .seg-tag { color:#f472b6; }
+    .seg-PID .seg-tag { color:#60a5fa; }
+    .seg-OBR .seg-tag { color:#a78bfa; }
+    .seg-OBX .seg-tag { color:#34d399; }
+    .seg-ORC .seg-tag { color:#fbbf24; }
+    .seg-MSA .seg-tag { color:#fb923c; }
+    .seg-UNK .seg-tag { color:var(--muted); }
+    .seg-modified .seg-body { color:var(--accent) !important; font-weight:600; }
+    .hl7-section-label { font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin:14px 0 6px; }
+    #detailView { background:linear-gradient(135deg,#13080f 0%,var(--panel) 100%); border-color:var(--border2); }
+    #detailView h2 { color:var(--accent); font-size:15px; letter-spacing:0.04em; }
+    .section-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:14px; }
+    .muted { color:var(--muted); }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <h1>⚔ HL7 MITM Dashboard</h1>
+      <div class="hero-sub">Intercezione e modifica messaggi HL7 in transito</div>
+    </div>
+    <div id="liveStatus" class="disconnected">
+      <span class="dot"></span>
+      <span id="liveLabel">Connessione in corso...</span>
+    </div>
+  </section>
+  <section class="panel panel-red"><div class="section-label">Filtri</div><div class="toolbar"><input type="search" id="searchBox" placeholder="Cerca paziente, ID, payload..." style="flex:1; min-width:200px;" /><select id="filterSelect"><option value="all">Tutti gli eventi</option><option value="modified">Solo modificati</option><option value="passed">Solo non modificati</option><option value="selected">Solo selezionati dal filtro</option></select></div></section>
+  <div class="summary" id="summary"></div>
+  <section class="panel panel-info" id="meta"></section>
+  <section class="panel" id="detailView"><h2>Dettaglio selezionato</h2><p class="muted" style="font-size:13px;">Clicca su un pacchetto per aprirlo qui.</p></section>
+  <div class="event-list" id="events"></div>
+</div>
+<script>
+
+    let currentData = null, prevEventiCount = 0, selectedEventIndex = null;
+    const summaryEl = document.getElementById('summary'), detailViewEl = document.getElementById('detailView'), metaEl = document.getElementById('meta'), eventsEl = document.getElementById('events'), searchBox = document.getElementById('searchBox'), filterSelect = document.getElementById('filterSelect'), liveStatus = document.getElementById('liveStatus'), liveLabel = document.getElementById('liveLabel');
+
+    searchBox.addEventListener('input', () => render(currentData));
+    filterSelect.addEventListener('change', () => render(currentData));
+
+    function fetchAggiornamenti() {
+      fetch('/api/dati')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(dati => {
+          if (dati.errore) { setLive('disconnected', 'Server in attesa...'); return; }
+          setLive('connected', 'Live connesso');
+          render(dati);
+        })
+        .catch(() => setLive('disconnected', 'Server non raggiungibile'));
+    }
+
+    function setLive(s, t) {
+      liveStatus.className = s;
+      liveLabel.textContent = t;
+    }
+
+    fetchAggiornamenti();
+    setInterval(fetchAggiornamenti, 1000);
+
+    function fDate(v) {
+      if (!v) return '—';
+      const d = new Date(v);
+      return isNaN(d) ? v : d.toLocaleString('it-IT');
+    }
+
+    function esc(s) {
+      return String(s ?? '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function statCard(label, value, cls) {
+      return `<div class="stat-card ${cls}"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+    }
+
+    function prettyHl7(msg) {
+      return String(msg || '').replace(/\r/g, '\n');
+    }
+
+    function extractField(msg, seg, idx) {
+      const line = String(msg || '').split('\r').find(r => r.startsWith(seg));
+      return line ? line.split('|')[idx] : '';
+    }
+
+    function extractConclusion(msg) {
+      const obx = String(msg || '').split('\r').find(r => r.includes('CONCLUSION'));
+      return obx ? obx.split('|')[5] : '';
+    }
+
+    function extractPatientName(msg) {
+      return extractField(msg, 'PID', 5);
+    }
+
+    function extractImageUrl(msg) {
+      const lines = String(msg || '').split('\r');
+      for (const line of lines) {
+        if (!line.startsWith('OBX')) continue;
+        const parts = line.split('|');
+        const val = parts[5] || '';
+        if (String(val).toLowerCase().includes('http')) return val;
+      }
+      return '';
+    }
+
+    const SEGCLASS = { 'MSH':'seg-MSH', 'PID':'seg-PID', 'OBR':'seg-OBR', 'OBX':'seg-OBX', 'ORC':'seg-ORC', 'MSA':'seg-MSA' };
+
+    function renderHl7(msg, changedFields) {
+      const lines = prettyHl7(msg).split('\n').filter(l => l.trim());
+      return lines.map(line => {
+        const parts = line.split('|');
+        const tag = parts[0] || 'SEG';
+        const body = parts.slice(1).join('|');
+        const cls = SEGCLASS[tag] || 'seg-UNK';
+
+        const isChanged = changedFields && changedFields.some(c => c.campo && c.campo.startsWith(tag));
+        const hasUrl = tag === 'OBX' && body.toLowerCase().includes('http');
+
+        return `<div class="hl7-seg ${cls} ${(isChanged || hasUrl) ? 'seg-modified' : ''}">
+          <div class="seg-tag">${esc(tag)}</div>
+          <div class="seg-body">${esc(body)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function render(data) {
+      if (!data) return;
+      currentData = data;
+      const riepilogo = data.riepilogo || {}, modalita = data.modalita || {};
+      let eventi = Array.isArray(data.eventi) ? data.eventi : [];
+
+      const q = searchBox.value.trim().toLowerCase();
+      const mode = filterSelect.value;
+
+      eventi = eventi.filter(ev => {
+        const hay = JSON.stringify(ev).toLowerCase();
+        const okSearch = !q || hay.includes(q);
+        let okMode = true;
+        if (mode === 'modified') okMode = !!ev.modified;
+        if (mode === 'passed') okMode = !ev.modified;
+        if (mode === 'selected') okMode = !!ev.selected_by_filter; 
+        return okSearch && okMode;
+      });
+
+      summaryEl.innerHTML = [
+        statCard('Totale intercettati', riepilogo.file_totali_passati ?? data.eventi?.length ?? 0, 'c-total'),
+        statCard('Modificati', riepilogo.file_modificati ?? 0, 'c-mod'),
+        statCard('Non modificati', riepilogo.file_passati_senza_modifica ?? 0, 'c-pass'),
+        statCard('Visibili adesso', eventi.length, 'c-show')
+      ].join('');
+
+      metaEl.innerHTML = `
+        <div class="section-label">Configurazione attacco</div>
+        <div class="grid">
+          <div class="cell"><div class="k">Ultimo aggiornamento</div><div class="v">${esc(fDate(data.timestamp_ultimo_aggiornamento))}</div></div>
+          <div class="cell"><div class="k">Flusso attacco</div><div class="v" style="color:var(--info)">${esc(modalita.direzione_attacco ?? '—')}</div></div>
+          <div class="cell"><div class="k">Tipo selezione</div><div class="v">${esc(modalita.tipo_selezione ?? '—')}</div></div>
+          <div class="cell"><div class="k">Criterio</div><div class="v">${esc(modalita.criterio?.tipo ?? modalita.criterio?.condizione ?? modalita.criterio?.valore ?? '—')}</div></div>
+          <div class="cell"><div class="k">Payload attivo</div><div class="v" style="color:var(--accent)">${esc(modalita.payload_label ?? modalita.payload ?? '—')}</div></div>
+        </div>
+      `;
+
+      if (!eventi.length) {
+        eventsEl.innerHTML = `<div class="panel"><p class="muted" style="font-size:13px">Nessun evento... In attesa di traffico HL7...</p></div>`;
+        prevEventiCount = 0;
+        return;
+      }
+
+      const newCount = eventi.length;
+      eventsEl.innerHTML = eventi.map((ev, i) => {
+        const idx = data.eventi.indexOf(ev);
+        const isNew = i < (newCount - prevEventiCount) && prevEventiCount > 0;
+        const isMod = ev.modified;
+        const statusBadge = isMod ? `<span class="badge b-danger">Modificato</span>` : `<span class="badge b-ok">Passato</span>`;
+        const selBadge = ev.selected_by_filter ? `<span class="badge b-warn">Selezionato</span>` : `<span class="badge b-info">Non selezionato</span>`;
+
+        const changesRows = ev.changes?.length 
+          ? ev.changes.map(c => `<tr><td>${esc(c.campo)}</td><td>${esc(c.prima)}</td><td>${esc(c.dopo)}</td></tr>`).join('') 
+          : `<tr><td colspan="3" style="color:var(--muted)">Nessuna modifica</td></tr>`;
+
+        const originalLines = renderHl7(ev.original_message, ev.changes);
+        const modifiedLines = renderHl7(ev.modified_message, ev.changes);
+
+        const origUrl = extractImageUrl(ev.original_message);
+        const modUrl = extractImageUrl(ev.modified_message);
+
+        const extraCells = (origUrl || modUrl) ? `
+          <div class="cell"><div class="k">URL originale</div><div class="v" style="color:var(--info); word-break: break-all;"><a href="${origUrl}" target="_blank" style="color:inherit">${esc(origUrl || '—')}</a></div></div>
+          <div class="cell"><div class="k">URL finale</div><div class="v" style="color:${isMod ? 'var(--accent)' : 'var(--ok)'}; word-break: break-all;"><a href="${modUrl}" target="_blank" style="color:inherit">${esc(modUrl || '—')}</a></div></div>
+        ` : `
+          <div class="cell"><div class="k">CONCLUSION orig</div><div class="v">${esc(extractConclusion(ev.original_message) || '—')}</div></div>
+          <div class="cell"><div class="k">CONCLUSION finale</div><div class="v" style="color:${isMod ? 'var(--accent)' : 'var(--ok)'}">${esc(extractConclusion(ev.modified_message) || '—')}</div></div>
+        `;
+
+        return `
+        <article class="event-card ${isNew ? 'new' : ''} ${isMod ? 'is-modified' : 'is-clean'} ${idx === selectedEventIndex ? 'selected' : ''}" data-index="${idx}">
+          <div class="topline">
+            <div>
+              <h3>Evento #${idx + 1} <span style="color:var(--info)">${esc(ev.patient_id)}</span></h3>
+              <div class="ts">${esc(fDate(ev.timestamp))}</div>
+            </div>
+            <div class="badges">${statusBadge} ${selBadge}</div>
+          </div>
+
+          <div class="grid">
+            <div class="cell"><div class="k">Flusso</div><div class="v" style="color:var(--info)">${esc(modalita.direzione_attacco ?? '—')}</div></div>
+            <div class="cell"><div class="k">Nome originale</div><div class="v">${esc(extractPatientName(ev.original_message) || '—')}</div></div>
+            <div class="cell"><div class="k">Nome finale</div><div class="v" style="color:${isMod ? 'var(--accent)' : 'var(--ok)'}">${esc(ev.patient_name || extractPatientName(ev.modified_message) || '—')}</div></div>
+            <div class="cell"><div class="k">Payload</div><div class="v">${esc(ev.payload_mode || '—')}</div></div>
+            ${extraCells}
+          </div>
+
+          <details>
+            <summary>Dettagli tecnici</summary>
+            <div class="section-label" style="margin-top:8px">Campi cambiati</div>
+            <table>
+              <thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead>
+              <tbody>${changesRows}</tbody>
+            </table>
+            <div class="hl7-section-label" style="margin-top:14px">Messaggio originale</div>
+            <div class="hl7-viewer original">${originalLines || 'Nessun messaggio originale'}</div>
+            <div class="hl7-section-label">Messaggio modificato</div>
+            <div class="hl7-viewer modified">${modifiedLines || 'Nessun messaggio modificato'}</div>
+          </details>
+        </article>`;
+      }).join('');
+
+      prevEventiCount = newCount;
+
+      document.querySelectorAll('.event-card').forEach(card => {
+        card.addEventListener('click', () => {
+          selectedEventIndex = Number(card.getAttribute('data-index'));
+          document.querySelectorAll('.event-card').forEach(cc => cc.classList.remove('selected'));
+          card.classList.add('selected');
+          if (currentData?.eventi && currentData.eventi[selectedEventIndex]) {
+            renderDetail(currentData.eventi[selectedEventIndex], selectedEventIndex + 1);
+          }
+        });
+        const det = card.querySelector('details');
+        if(det) det.addEventListener('click', e => e.stopPropagation());
+      });
+
+      if (selectedEventIndex !== null && currentData?.eventi && currentData.eventi[selectedEventIndex]) {
+        renderDetail(currentData.eventi[selectedEventIndex], selectedEventIndex + 1);
+      }
+    }
+
+    function renderDetail(ev, num) {
+      const isMod = ev.modified;
+      const changes = ev.changes?.length 
+        ? ev.changes.map(c => `<li><strong style="color:var(--info)">${esc(c.campo)}</strong>: <span style="color:var(--muted)">${esc(c.prima)}</span> → <span style="color:var(--accent)">${esc(c.dopo)}</span></li>`).join('') 
+        : '<li style="color:var(--muted)">Nessun campo modificato.</li>';
+
+      const origHl7 = renderHl7(ev.original_message, ev.changes);
+      const modHl7 = renderHl7(ev.modified_message, ev.changes);
+
+      const origUrl = extractImageUrl(ev.original_message);
+      const modUrl = extractImageUrl(ev.modified_message);
+      const isImageFlow = !!(origUrl || modUrl);
+      const flow = currentData?.modalita?.direzione_attacco ?? '—';
+
+      const dynamicCells = isImageFlow ? `
+        <div class="cell"><div class="k">Nome originale</div><div class="v">${esc(extractField(ev.original_message, 'PID', 5) || '—')}</div></div>
+        <div class="cell"><div class="k">Data nascita</div><div class="v">${esc(extractField(ev.original_message, 'PID', 7) || '—')}</div></div>
+        <div class="cell"><div class="k">URL immagine originale</div><div class="v" style="color:var(--info); word-break: break-all;"><a href="${origUrl}" target="_blank" style="color:inherit">${esc(origUrl || '—')}</a></div></div>
+        <div class="cell"><div class="k">URL immagine finale</div><div class="v" style="color:${isMod ? 'var(--accent)' : 'var(--ok)'}; word-break: break-all;"><a href="${modUrl}" target="_blank" style="color:inherit">${esc(modUrl || '—')}</a></div></div>
+      ` : `
+        <div class="cell"><div class="k">Nome originale</div><div class="v">${esc(extractField(ev.original_message, 'PID', 5) || '—')}</div></div>
+        <div class="cell"><div class="k">Data nascita</div><div class="v">${esc(extractField(ev.original_message, 'PID', 7) || '—')}</div></div>
+        <div class="cell"><div class="k">CONCLUSION originale</div><div class="v">${esc(extractConclusion(ev.original_message) || '—')}</div></div>
+        <div class="cell"><div class="k">CONCLUSION finale</div><div class="v" style="color:${isMod ? 'var(--accent)' : 'var(--ok)'}">${esc(extractConclusion(ev.modified_message) || '—')}</div></div>
+      `;
+
+      detailViewEl.innerHTML = `
+        <h2>Pacchetto #${num}</h2>
+        <div class="grid">
+          <div class="cell"><div class="k">Stato</div><div class="v" style="color:${isMod ? 'var(--accent)' : 'var(--ok)'}">${isMod ? 'MODIFICATO' : 'NON MODIFICATO'}</div></div>
+          <div class="cell"><div class="k">Patient ID</div><div class="v" style="color:var(--info)">${esc(ev.patient_id || '—')}</div></div>
+          <div class="cell"><div class="k">Nome finale</div><div class="v">${esc(ev.patient_name || '—')}</div></div>
+          <div class="cell"><div class="k">Selezionato</div><div class="v">${ev.selected_by_filter ? '<span style="color:var(--warn)">Sì</span>' : '<span style="color:var(--muted)">No</span>'}</div></div>
+          <div class="cell"><div class="k">Payload</div><div class="v" style="color:var(--accent)">${esc(ev.payload_mode || '—')}</div></div>
+          <div class="cell"><div class="k">Flusso Attacco</div><div class="v" style="color:var(--info)">${esc(flow)}</div></div>
+        </div>
+
+        <div class="grid">
+          ${dynamicCells}
+        </div>
+
+        <div class="section-label">Cambiamenti</div>
+        <ul style="font-size:13px; padding-left:20px; margin:0 0 16px">${changes}</ul>
+
+        <div class="hl7-section-label">Messaggio originale</div>
+        <div class="hl7-viewer original">${origHl7}</div>
+
+        <div class="hl7-section-label">Messaggio modificato</div>
+        <div class="hl7-viewer modified">${modHl7}</div>
+      `;
+    }
+
+</script>
+</body>
+</html>
