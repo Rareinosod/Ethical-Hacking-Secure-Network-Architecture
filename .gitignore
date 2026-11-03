@@ -1,0 +1,18 @@
+# OS Temporary Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python bytecode and logs
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+ris_log.txt
+pacs_log.txt
+his_log.txt
+his_cartella_clinica.json
+
+# Network capture dumps (runtime)
+*.pcap
+*.pcapng
